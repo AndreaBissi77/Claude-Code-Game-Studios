@@ -52,12 +52,13 @@ if [ -z "$MESSAGE" ]; then
   MESSAGE="Claude Code needs your attention"
 fi
 
-# TRUNCATE FIRST, then escape. Escaping doubles each `'` into `''`, so cutting
-# at a fixed byte count afterwards can land between the two halves of a pair and
-# hand PowerShell an unbalanced quote. The command then fails to parse, and
-# because it is backgrounded with stderr discarded the only symptom is a
-# notification that never appears.
-MESSAGE_SAFE=$(printf '%s' "$MESSAGE" | head -c 200 | sed "s/'/''/g")
+# Truncate to 200 bytes; no escaping is needed, see below.
+MESSAGE_SAFE=$(printf '%s' "$MESSAGE" | head -c 200)
+# The text reaches PowerShell through an environment variable, never spliced
+# into the -Command string: PowerShell also treats the typographic quotes
+# U+2018-U+201B as string delimiters, so doubling only ' left a way to close
+# the string and run commands from a notification's text.
+export CCGS_NOTIFY_TEXT="$MESSAGE_SAFE"
 
 # Show Windows balloon tip notification (works on all Windows 10/11 without extra modules)
 powershell.exe -NonInteractive -WindowStyle Hidden -Command "
@@ -65,7 +66,7 @@ powershell.exe -NonInteractive -WindowStyle Hidden -Command "
   \$notify = New-Object System.Windows.Forms.NotifyIcon
   \$notify.Icon = [System.Drawing.SystemIcons]::Information
   \$notify.BalloonTipTitle = 'Claude Code'
-  \$notify.BalloonTipText = '$MESSAGE_SAFE'
+  \$notify.BalloonTipText = \$env:CCGS_NOTIFY_TEXT
   \$notify.Visible = \$true
   \$notify.ShowBalloonTip(5000)
   Start-Sleep -Seconds 6

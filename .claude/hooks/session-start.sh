@@ -21,6 +21,12 @@
 # overriding a caller that legitimately means somewhere else.
 #
 # NOT an upward search: that resolves a nested project to its parent's config.
+# Code (yaml-helper.sh, update-check.sh, .claude/scripts/) always loads from
+# THIS hook's own tree, never from the working directory: a cwd holding its
+# own .claude/ (a cloned template, an asset pack) would otherwise have its
+# scripts run on every tool call, before any permission check. The data root
+# below still follows the cwd rules.
+_CCGS_HOOKS="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 if [ -f "project.yaml" ] || { [ -d ".claude" ] && [ "${PWD##*/}" != ".claude" ]; }; then
   CCGS_ROOT="$PWD"
 elif [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "${CLAUDE_PROJECT_DIR}" ] && case "${CLAUDE_PROJECT_DIR%/}" in */.claude|*\\.claude) false ;; *) true ;; esac; then
@@ -75,8 +81,8 @@ fi
 # returns empty for a rigor-only project, which would leave the banner showing a
 # stale `lean`.
 REVIEW_MODE=""
-if [ -f "project.yaml" ] && [ -f ".claude/hooks/yaml-helper.sh" ]; then
-    source .claude/hooks/yaml-helper.sh
+if [ -f "project.yaml" ] && [ -f "$_CCGS_HOOKS/yaml-helper.sh" ]; then
+    source "$_CCGS_HOOKS/yaml-helper.sh"
     REVIEW_MODE=$(resolve_setting modes.review_mode 2>/dev/null | cut -f1)
 fi
 if [ -z "$REVIEW_MODE" ] && [ -f "production/review-mode.txt" ]; then
@@ -94,9 +100,9 @@ echo "Review mode: $REVIEW_MODE"
 # Schema validation — surface invalid enum values in
 # project.yaml and project.local.yaml so typos like `automation: chaotic`
 # surface at session start rather than failing inside a skill.
-if [ -f ".claude/hooks/yaml-helper.sh" ]; then
+if [ -f "$_CCGS_HOOKS/yaml-helper.sh" ]; then
     if ! type validate_yaml_enum >/dev/null 2>&1; then
-        source .claude/hooks/yaml-helper.sh
+        source "$_CCGS_HOOKS/yaml-helper.sh"
     fi
     # Hard-error guard: project.local.yaml requires a project.yaml base
     if ! BASE_ERR=$(validate_local_yaml_base 2>&1); then
@@ -125,8 +131,8 @@ fi
 # One line when a newer release is out. It reads a cache that a background job
 # refreshes at most once a day, so this hook makes no network call and never
 # waits for one. `updates.check: false` turns it off (effects-map.md).
-if [ -f .claude/hooks/update-check.sh ]; then
-    . .claude/hooks/update-check.sh
+if [ -f "$_CCGS_HOOKS/update-check.sh" ]; then
+    . "$_CCGS_HOOKS/update-check.sh"
     UPDATE_LINE=$(update_check_notice 2>/dev/null)
     if [ -n "$UPDATE_LINE" ]; then
         echo ""
@@ -180,8 +186,8 @@ fi
 # Fixed, as bug-stats.sh counts them. Counting the files themselves reported
 # every closed bug as open.
 BUG_OPEN=""
-if [ -f .claude/scripts/bug-stats.sh ]; then
-    BUG_OPEN=$(bash .claude/scripts/bug-stats.sh --root . tests/playtest production 2>/dev/null \
+if [ -f "$_CCGS_HOOKS/../scripts/bug-stats.sh" ]; then
+    BUG_OPEN=$(bash "$_CCGS_HOOKS/../scripts/bug-stats.sh" --root . tests/playtest production 2>/dev/null \
                | awk -F'\t' '$1 == "open" { print $2 }')
 fi
 if [ -n "$BUG_OPEN" ] && [ "$BUG_OPEN" -gt 0 ]; then
@@ -197,8 +203,8 @@ fi
 #
 # Sourcing here is defensive: the two source sites above are both conditional,
 # so by this point the function may or may not exist.
-if [ -f .claude/hooks/yaml-helper.sh ] && ! command -v resolve_code_root >/dev/null 2>&1; then
-    . .claude/hooks/yaml-helper.sh 2>/dev/null
+if [ -f "$_CCGS_HOOKS/yaml-helper.sh" ] && ! command -v resolve_code_root >/dev/null 2>&1; then
+    . "$_CCGS_HOOKS/yaml-helper.sh" 2>/dev/null
 fi
 if command -v resolve_code_root >/dev/null 2>&1; then
     CODE_ROOT=$(resolve_code_root 2>/dev/null | cut -f1)
@@ -262,8 +268,8 @@ fi
 # whose absence the user cannot notice. Show the state unless we positively
 # determined the flag is off.
 STATE_FILE="production/session-state/active.md"
-if [ -f .claude/hooks/yaml-helper.sh ] && ! command -v session_state_enabled >/dev/null 2>&1; then
-    . .claude/hooks/yaml-helper.sh
+if [ -f "$_CCGS_HOOKS/yaml-helper.sh" ] && ! command -v session_state_enabled >/dev/null 2>&1; then
+    . "$_CCGS_HOOKS/yaml-helper.sh"
 fi
 if [ -f "$STATE_FILE" ] && { ! command -v session_state_enabled >/dev/null 2>&1 || session_state_enabled; }; then
     echo ""

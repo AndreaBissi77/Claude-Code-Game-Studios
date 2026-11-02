@@ -21,6 +21,12 @@
 # overriding a caller that legitimately means somewhere else.
 #
 # NOT an upward search: that resolves a nested project to its parent's config.
+# Code (yaml-helper.sh, update-check.sh, .claude/scripts/) always loads from
+# THIS hook's own tree, never from the working directory: a cwd holding its
+# own .claude/ (a cloned template, an asset pack) would otherwise have its
+# scripts run on every tool call, before any permission check. The data root
+# below still follows the cwd rules.
+_CCGS_HOOKS="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 if [ -f "project.yaml" ] || { [ -d ".claude" ] && [ "${PWD##*/}" != ".claude" ]; }; then
   CCGS_ROOT="$PWD"
 elif [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "${CLAUDE_PROJECT_DIR}" ] && case "${CLAUDE_PROJECT_DIR%/}" in */.claude|*\\.claude) false ;; *) true ;; esac; then
@@ -41,8 +47,8 @@ fi
 
 # features.session_state: off => this hook is a no-op. Default `on`; see
 # session_state_enabled() in yaml-helper.sh.
-if [ -f .claude/hooks/yaml-helper.sh ]; then
-    . .claude/hooks/yaml-helper.sh
+if [ -f "$_CCGS_HOOKS/yaml-helper.sh" ]; then
+    . "$_CCGS_HOOKS/yaml-helper.sh"
     session_state_enabled || exit 0
 fi
 

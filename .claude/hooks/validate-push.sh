@@ -21,6 +21,12 @@
 # overriding a caller that legitimately means somewhere else.
 #
 # NOT an upward search: that resolves a nested project to its parent's config.
+# Code (yaml-helper.sh, update-check.sh, .claude/scripts/) always loads from
+# THIS hook's own tree, never from the working directory: a cwd holding its
+# own .claude/ (a cloned template, an asset pack) would otherwise have its
+# scripts run on every tool call, before any permission check. The data root
+# below still follows the cwd rules.
+_CCGS_HOOKS="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 if [ -f "project.yaml" ] || { [ -d ".claude" ] && [ "${PWD##*/}" != ".claude" ]; }; then
   CCGS_ROOT="$PWD"
 elif [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "${CLAUDE_PROJECT_DIR}" ] && case "${CLAUDE_PROJECT_DIR%/}" in */.claude|*\\.claude) false ;; *) true ;; esac; then
@@ -217,8 +223,8 @@ ACT_SEGS=$( { git_segment '(tag|merge)' "$ACT_CMD"
               command_segments "$ACT_CMD" | grep -E '(^|[[:space:]/\\])(gh|butler|steamcmd)(\.exe|\.sh)?[[:space:]]'; } 2>/dev/null )
 ACT_MSG=""
 if [ -n "$ACT_SEGS" ]; then
-    if [ -f .claude/scripts/write-guard.sh ]; then
-        ACTIONS=$(printf '%s\n' "$ACT_SEGS" | bash .claude/scripts/write-guard.sh --root . git 2>/dev/null \
+    if [ -f "$_CCGS_HOOKS/../scripts/write-guard.sh" ]; then
+        ACTIONS=$(printf '%s\n' "$ACT_SEGS" | bash "$_CCGS_HOOKS/../scripts/write-guard.sh" --root . git 2>/dev/null \
           | awk -F '\t' '$1 == "GIT_ACTION" && !seen[$2]++ {
               w = ($2 == "tag") ? "git tag" : ($2 == "merge") ? "git merge" : ($2 == "release") ? "gh release" \
                 : ($2 == "deploy-itch") ? "butler push" : "steamcmd +run_app_build"
