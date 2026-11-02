@@ -21,6 +21,12 @@
 # overriding a caller that legitimately means somewhere else.
 #
 # NOT an upward search: that resolves a nested project to its parent's config.
+# Code (yaml-helper.sh, update-check.sh, .claude/scripts/) always loads from
+# THIS hook's own tree, never from the working directory: a cwd holding its
+# own .claude/ (a cloned template, an asset pack) would otherwise have its
+# scripts run on every tool call, before any permission check. The data root
+# below still follows the cwd rules.
+_CCGS_HOOKS="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 if [ -f "project.yaml" ] || { [ -d ".claude" ] && [ "${PWD##*/}" != ".claude" ]; }; then
   CCGS_ROOT="$PWD"
 elif [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "${CLAUDE_PROJECT_DIR}" ] && case "${CLAUDE_PROJECT_DIR%/}" in */.claude|*\\.claude) false ;; *) true ;; esac; then
@@ -60,19 +66,19 @@ case "$INPUT" in
   *) exit 0 ;;
 esac
 
-[ -f .claude/hooks/yaml-helper.sh ] && . .claude/hooks/yaml-helper.sh 2>/dev/null
+[ -f "$_CCGS_HOOKS/yaml-helper.sh" ] && . "$_CCGS_HOOKS/yaml-helper.sh" 2>/dev/null
 vr_warn() {
   if command -v hook_warn >/dev/null 2>&1; then hook_warn PreToolUse "$1"
   else printf '%s\n' "$1" >&2; fi
   exit 0
 }
 for _vr_s in hook-input.sh registry.sh; do
-  [ -f ".claude/scripts/$_vr_s" ] || vr_warn "Registry check skipped: the helper .claude/scripts/$_vr_s is missing, so the write goes ahead unchecked."
+  [ -f "$_CCGS_HOOKS/../scripts/$_vr_s" ] || vr_warn "Registry check skipped: the helper .claude/scripts/$_vr_s is missing, so the write goes ahead unchecked."
 done
 
 _VR_NEW=$(mktemp 2>/dev/null) || exit 0
 trap 'rm -f "$_VR_NEW"' EXIT
-_VR_IN=$(printf '%s' "$INPUT" | bash .claude/scripts/hook-input.sh --root . --new "$_VR_NEW" 2>/dev/null)
+_VR_IN=$(printf '%s' "$INPUT" | bash "$_CCGS_HOOKS/../scripts/hook-input.sh" --root . --new "$_VR_NEW" 2>/dev/null)
 vr_row() { printf '%s\n' "$_VR_IN" | awk -F '\t' -v k="$1" '$1 == k { print $2; exit }'; }
 REL_PATH=$(vr_row path)
 [ "$(vr_row where)" = inside ] || exit 0
@@ -97,7 +103,7 @@ case "$(vr_row new)" in
   *) vr_skip "the new content could not be rebuilt" ;;
 esac
 
-_VR_OUT=$(bash .claude/scripts/registry.sh compare "$REG" "$REL_PATH" "$_VR_NEW" 2>/dev/null)
+_VR_OUT=$(bash "$_CCGS_HOOKS/../scripts/registry.sh" compare "$REG" "$REL_PATH" "$_VR_NEW" 2>/dev/null)
 
 # At most this many names per rule in the warning: a longer list buries the
 # point, and validate prints them all.

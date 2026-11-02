@@ -21,6 +21,12 @@
 # overriding a caller that legitimately means somewhere else.
 #
 # NOT an upward search: that resolves a nested project to its parent's config.
+# Code (yaml-helper.sh, update-check.sh, .claude/scripts/) always loads from
+# THIS hook's own tree, never from the working directory: a cwd holding its
+# own .claude/ (a cloned template, an asset pack) would otherwise have its
+# scripts run on every tool call, before any permission check. The data root
+# below still follows the cwd rules.
+_CCGS_HOOKS="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 if [ -f "project.yaml" ] || { [ -d ".claude" ] && [ "${PWD##*/}" != ".claude" ]; }; then
   CCGS_ROOT="$PWD"
 elif [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "${CLAUDE_PROJECT_DIR}" ] && case "${CLAUDE_PROJECT_DIR%/}" in */.claude|*\\.claude) false ;; *) true ;; esac; then
@@ -94,7 +100,7 @@ fi
 # Advisory, so exit 0 -- and therefore hook JSON, not stderr, which on exit 0
 # reaches the debug log only. See hook_warn in yaml-helper.sh.
 _VS_MSG="Skill modified: $SKILL_NAME. Run /skill-test static $SKILL_NAME to validate structural compliance."
-[ -f .claude/hooks/yaml-helper.sh ] && . .claude/hooks/yaml-helper.sh 2>/dev/null
+[ -f "$_CCGS_HOOKS/yaml-helper.sh" ] && . "$_CCGS_HOOKS/yaml-helper.sh" 2>/dev/null
 if command -v hook_warn >/dev/null 2>&1; then
     hook_warn PostToolUse "$_VS_MSG"
 else

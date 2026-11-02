@@ -85,6 +85,12 @@
       "Bash(git *clean* -qXdf*)",
       "Bash(git *clean* -Xdqf*)",
       "Bash(git *clean* -Xqdf*)",
+      "Bash(git *--output*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/id_rsa*)",
+      "Read(**/id_ed25519*)",
+      "Read(~/.ssh/**)",
       "Bash(sudo *)",
       "Bash(chmod 777*)",
       "Read(**/.env*)",
@@ -143,6 +149,7 @@
       "PowerShell(git *clean* -qXdf*)",
       "PowerShell(git *clean* -Xdqf*)",
       "PowerShell(git *clean* -Xqdf*)",
+      "PowerShell(git *--output*)",
       "PowerShell(Get-Content *.env*)",
       "PowerShell(*>.env*)"
     ]

@@ -21,6 +21,12 @@
 # overriding a caller that legitimately means somewhere else.
 #
 # NOT an upward search: that resolves a nested project to its parent's config.
+# Code (yaml-helper.sh, update-check.sh, .claude/scripts/) always loads from
+# THIS hook's own tree, never from the working directory: a cwd holding its
+# own .claude/ (a cloned template, an asset pack) would otherwise have its
+# scripts run on every tool call, before any permission check. The data root
+# below still follows the cwd rules.
+_CCGS_HOOKS="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 if [ -f "project.yaml" ] || { [ -d ".claude" ] && [ "${PWD##*/}" != ".claude" ]; }; then
   CCGS_ROOT="$PWD"
 elif [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "${CLAUDE_PROJECT_DIR}" ] && case "${CLAUDE_PROJECT_DIR%/}" in */.claude|*\\.claude) false ;; *) true ;; esac; then
@@ -96,19 +102,19 @@ esac
 case "$_VW_REST" in *prototypes*) _vw_go=1 ;; esac
 [ "$_vw_go" = 1 ] || exit 0
 
-[ -f .claude/hooks/yaml-helper.sh ] && . .claude/hooks/yaml-helper.sh 2>/dev/null
+[ -f "$_CCGS_HOOKS/yaml-helper.sh" ] && . "$_CCGS_HOOKS/yaml-helper.sh" 2>/dev/null
 vw_warn() {
   if command -v hook_warn >/dev/null 2>&1; then hook_warn PreToolUse "$1"
   else printf '%s\n' "$1" >&2; fi
   exit 0
 }
 for _vw_s in hook-input.sh write-guard.sh; do
-  [ -f ".claude/scripts/$_vw_s" ] || vw_warn "Write check skipped: the helper .claude/scripts/$_vw_s is missing, so the write goes ahead unchecked."
+  [ -f "$_CCGS_HOOKS/../scripts/$_vw_s" ] || vw_warn "Write check skipped: the helper .claude/scripts/$_vw_s is missing, so the write goes ahead unchecked."
 done
 
 _VW_NEW=$(mktemp 2>/dev/null) || exit 0
 trap 'rm -f "$_VW_NEW"' EXIT
-_VW_IN=$(printf '%s' "$INPUT" | bash .claude/scripts/hook-input.sh --root . --new "$_VW_NEW" 2>/dev/null)
+_VW_IN=$(printf '%s' "$INPUT" | bash "$_CCGS_HOOKS/../scripts/hook-input.sh" --root . --new "$_VW_NEW" 2>/dev/null)
 vw_row() { printf '%s\n' "$_VW_IN" | awk -F '\t' -v k="$1" '$1 == k { print $2; exit }'; }
 _VW_WHERE=$(vw_row where); _VW_PATH=$(vw_row path); _VW_TOOL=$(vw_row tool)
 [ "$_VW_WHERE" = inside ] || exit 0
@@ -118,11 +124,11 @@ _VW_AGENT=$(vw_row agent); _VW_EXISTED=$(vw_row existed); _VW_GOT=$(vw_row new)
 set -- check "$_VW_PATH" --tool "$_VW_TOOL" --existed "$_VW_EXISTED"
 [ "$_VW_AGENT" != "-" ] && set -- "$@" --agent "$_VW_AGENT"
 if [ "$_VW_GOT" = ok ]; then
-  _VW_OUT=$(bash .claude/scripts/write-guard.sh --root . "$@" "$_VW_NEW" 2>/dev/null)
+  _VW_OUT=$(bash "$_CCGS_HOOKS/../scripts/write-guard.sh" --root . "$@" "$_VW_NEW" 2>/dev/null)
 else
   # The content could not be rebuilt: the rules that read it (config,
   # prototype) say so below; the others still run on the path.
-  _VW_OUT=$(bash .claude/scripts/write-guard.sh --root . "$@" 2>/dev/null)
+  _VW_OUT=$(bash "$_CCGS_HOOKS/../scripts/write-guard.sh" --root . "$@" 2>/dev/null)
 fi
 
 # At most this many findings in the warning: a longer list buries the point,

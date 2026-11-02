@@ -71,7 +71,9 @@ fi
 # subshell inherit it. Success is whether the function exists, not the
 # source's exit status.
 project_yaml="$cwd/project.yaml"
-yaml_helper="$cwd/.claude/hooks/yaml-helper.sh"
+# The helper is CODE: load it from beside this script, never from $cwd, which
+# comes from the session JSON and could point at a tree with its own .claude/.
+yaml_helper="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/hooks/yaml-helper.sh"
 helper=false
 if [ -f "$yaml_helper" ]; then
   source "$yaml_helper" 2>/dev/null

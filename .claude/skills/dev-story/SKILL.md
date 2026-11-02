@@ -4,7 +4,7 @@ description: "Implements one story in code with tests, following its ADRs. Use w
 argument-hint: "[story-path]"
 user-invocable: true
 disable-model-invocation: true
-allowed-tools: Read, Glob, Grep, Write, Edit, Agent, AskUserQuestion, Bash(bash "*/.claude/skills/dev-story/../../hooks/yaml-helper.sh" resolve_config *), Bash(bash .claude/scripts/story-facts.sh *), Bash(bash .claude/scripts/adr-status.sh *), Bash(bash .claude/scripts/md-section.sh *), Bash(bash .claude/scripts/session-state.sh *), Bash(bash .claude/scripts/review-receipts.sh hash *), Bash(godot *), Bash(mkdir -p production/qa/evidence/*)
+allowed-tools: Read, Glob, Grep, Write, Edit, Agent, AskUserQuestion, Bash(bash "*/.claude/skills/dev-story/../../hooks/yaml-helper.sh" resolve_config *), Bash(bash .claude/scripts/story-facts.sh *), Bash(bash .claude/scripts/adr-status.sh *), Bash(bash .claude/scripts/md-section.sh *), Bash(bash .claude/scripts/session-state.sh *), Bash(bash .claude/scripts/review-receipts.sh hash *), Bash(godot --headless --path . --import), Bash(godot --headless --path . -s res://.claude/scripts/godot-parse-check.gd -- *), Bash(godot --path . --windowed --resolution 1280x720 *), Bash(mkdir -p production/qa/evidence/*)
 model: sonnet
 ---
 
@@ -251,7 +251,9 @@ minimal`. Report exactly one line, plain text starting `Run result:` (no bold:
 Only the feel half of a Visual/Feel criterion (timing, weight) is DEFERRED to
 `/team-qa`: a still cannot show it.
 
-This skill pre-approves `godot` on PATH. An engine run through `engine.path` or
+This skill pre-approves only the three `godot` command shapes above (import,
+parse check, windowed run), with `godot` on PATH. Any other `godot` command asks
+first. An engine run through `engine.path` or
 the executable `commands.test` names asks first: the user approves it once, or
 adds `Bash(<that executable> *)` to `.claude/settings.local.json`.
 
